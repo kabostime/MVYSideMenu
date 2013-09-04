@@ -9,20 +9,27 @@
 #import <UIKit/UIKit.h>
 #import "MVYSideMenuOptions.h"
 
+typedef NS_ENUM(NSInteger, MVYSideMenuSide){
+	MVYSideMenuLeft,
+	MVYSideMenuRight
+};
+
 @interface MVYSideMenuController : UIViewController
 
-@property (nonatomic, strong, readonly) UIViewController *menuViewController;
+@property (nonatomic, strong, readonly) UIViewController *leftViewController;
+@property (nonatomic, strong, readonly) UIViewController *rightViewController;
 @property (nonatomic, strong, readonly) UIViewController *contentViewController;
 @property (nonatomic, copy) MVYSideMenuOptions *options;
 
-- (id)initWithMenuViewController:(UIViewController *)menuViewController contentViewController:(UIViewController *)contentViewController;
-- (id)initWithMenuViewController:(UIViewController *)menuViewController contentViewController:(UIViewController *)contentViewController options:(MVYSideMenuOptions *)options;
+- (id)initWithMenuViewController:(UIViewController *)leftViewController rightViewController:(UIViewController *)rightViewController contentViewController:(UIViewController *)contentViewController;
+- (id)initWithMenuViewController:(UIViewController *)leftViewController rightViewController:(UIViewController *)rightViewController contentViewController:(UIViewController *)contentViewController options:(MVYSideMenuOptions *)options;
 - (void)closeMenu;
-- (void)openMenu;
+- (void)openMenu:(MVYSideMenuSide)side;
 - (void)disable;
 - (void)enable;
 - (void)changeContentViewController:(UIViewController *)contentViewController closeMenu:(BOOL)closeMenu;
-- (void)changeMenuViewController:(UIViewController *)menuViewController closeMenu:(BOOL)closeMenu;
+- (void)changeLeftViewController:(UIViewController *)leftViewController closeMenu:(BOOL)closeMenu;
+- (void)changeRightViewController:(UIViewController *)rightViewController closeMenu:(BOOL)closeMenu;
 
 @end
 

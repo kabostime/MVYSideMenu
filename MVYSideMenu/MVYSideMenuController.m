@@ -23,10 +23,9 @@ typedef struct {
 
 @interface MVYSideMenuController () <UIGestureRecognizerDelegate>
 
-@property (nonatomic, strong) UIViewController *menuViewController;
-@property (nonatomic, strong) UIViewController *contentViewController;
 @property (strong, nonatomic) UIView *contentContainerView;
-@property (strong, nonatomic) UIView *menuContainerView;
+@property (strong, nonatomic) UIView *leftContainerView;
+@property (strong, nonatomic) UIView *rightContainerView;
 @property (strong, nonatomic) UIView *opacityView;
 @property (strong, nonatomic) UIPanGestureRecognizer *panGesture;
 @property (strong, nonatomic) UITapGestureRecognizer *tapGesture;
@@ -45,22 +44,26 @@ typedef struct {
 	return self;
 }
 
-- (id)initWithMenuViewController:(UIViewController *)menuViewController
+- (id)initWithMenuViewController:(UIViewController *)leftViewController
+             rightViewController:(UIViewController *)rightViewController
 		   contentViewController:(UIViewController *)contentViewController {
 	
-	return [self initWithMenuViewController:menuViewController
+	return [self initWithMenuViewController:leftViewController
+                        rightViewController:rightViewController
 					  contentViewController:contentViewController
 									options:[[MVYSideMenuOptions alloc] init]];
 }
 
-- (id)initWithMenuViewController:(UIViewController *)menuViewController
+- (id)initWithMenuViewController:(UIViewController *)leftViewController
+             rightViewController:(UIViewController *)rightViewController
 		   contentViewController:(UIViewController *)contentViewController
 						 options:(MVYSideMenuOptions *)options {
 	
 	self = [super init];
 	if(self){
 		_options = options;
-		_menuViewController = menuViewController;
+		_leftViewController = leftViewController;
+        _rightViewController = rightViewController;
 		_contentViewController = contentViewController;
 	}
 	return self;
@@ -71,7 +74,9 @@ typedef struct {
     [super viewDidLoad];
 	// Do any additional setup after loading the view.
 	
-	[self setUpMenuViewController:_menuViewController];
+	[self setUpMenuViewController:_leftViewController side:MVYSideMenuLeft];
+    [self setUpMenuViewController:_rightViewController side:MVYSideMenuRight];
+
 	[self setUpContentViewController:_contentViewController];
 	
 	[self addGestures];
@@ -83,14 +88,22 @@ typedef struct {
     // Dispose of any resources that can be recreated.
 }
 
-- (void)setMenuViewController:(UIViewController *)menuViewController {
+- (void)setRightViewController:(UIViewController *)rightViewController{
 	
-	[self removeViewController:_menuViewController];
+	[self removeViewController:_rightViewController];
 	
-	_menuViewController = menuViewController;
+	_rightViewController = rightViewController;
 	
-	[self setUpMenuViewController:_menuViewController];
+	[self setUpMenuViewController:_rightViewController side:MVYSideMenuRight];
+}
+
+- (void)setLeftViewController:(UIViewController *)leftViewController{
 	
+	[self removeViewController:_leftViewController];
+	
+	_leftViewController = leftViewController;
+	
+	[self setUpMenuViewController:_leftViewController side:MVYSideMenuLeft];
 }
 
 - (void)setContentViewController:(UIViewController *)contentViewController {
@@ -104,13 +117,16 @@ typedef struct {
 }
 
 - (void)closeMenu {
-	
-	[self closeMenuWithVelocity:0.0f];
+	if([self isLeftMenuOpen]){
+       	[self closeMenuWithVelocity:0.0f side:MVYSideMenuLeft];
+    } else if ([self isRightMenuOpen]){
+        [self closeMenuWithVelocity:0.0f side:MVYSideMenuRight];
+    }
 }
 
-- (void)openMenu {
+- (void)openMenu:(MVYSideMenuSide)side {
 	
-	[self openMenuWithVelocity:0.0f];
+	[self openMenuWithVelocity:0.0f side:(MVYSideMenuSide)side];
 }
 
 - (void)disable {
@@ -127,8 +143,13 @@ typedef struct {
 	closeMenu ? [self closeMenu] : nil;
 }
 
-- (void)changeMenuViewController:(UIViewController *)menuViewController closeMenu:(BOOL)closeMenu {
-	self.menuViewController = menuViewController;
+- (void)changeRightViewController:(UIViewController *)rightViewController closeMenu:(BOOL)closeMenu {
+	self.rightViewController = rightViewController;
+	closeMenu ? [self closeMenu] : nil;
+}
+
+- (void)changeLeftViewController:(UIViewController *)leftViewController closeMenu:(BOOL)closeMenu {
+	self.leftViewController = leftViewController;
 	closeMenu ? [self closeMenu] : nil;
 }
 
@@ -143,13 +164,21 @@ typedef struct {
 	}
 }
 
-- (void)setUpMenuViewController:(UIViewController *)menuViewController {
+- (void)setUpMenuViewController:(UIViewController *)menuViewController side:(MVYSideMenuSide)side {
 	
 	if (menuViewController) {
-		[self addChildViewController:menuViewController];
-		menuViewController.view.frame = self.menuContainerView.bounds;
-		[self.menuContainerView addSubview:menuViewController.view];
-		[menuViewController didMoveToParentViewController:self];
+        if (side == MVYSideMenuLeft) {
+            [self addChildViewController:menuViewController];
+            menuViewController.view.frame = self.leftContainerView.bounds;
+            [self.leftContainerView addSubview:menuViewController.view];
+            [menuViewController didMoveToParentViewController:self];
+        } else if ( side == MVYSideMenuRight) {
+            [self addChildViewController:menuViewController];
+            menuViewController.view.frame = self.rightContainerView.bounds;
+            [self.rightContainerView addSubview:menuViewController.view];
+            [menuViewController didMoveToParentViewController:self];
+
+        }
 	}
 }
 
@@ -190,52 +219,73 @@ typedef struct {
     return _contentContainerView;
 }
 
-- (UIView *)menuContainerView {
-    if (!_menuContainerView) {
+- (UIView *)rightContainerView {
+    if (!_rightContainerView) {
 		CGRect frame = self.view.bounds;
 		frame.size.width = frame.size.width - self.options.menuViewOverlapWidth;
-		frame.origin.x = [self menuMinOrigin];
-        _menuContainerView = [[UIView alloc] initWithFrame:frame];
-        _menuContainerView.backgroundColor = [UIColor clearColor];
-        _menuContainerView.autoresizingMask = UIViewAutoresizingFlexibleHeight;
+		frame.origin.x = [self menuMaxOrigin:MVYSideMenuRight];
+        _rightContainerView = [[UIView alloc] initWithFrame:frame];
+        _rightContainerView.backgroundColor = [UIColor clearColor];
+        _rightContainerView.autoresizingMask = UIViewAutoresizingFlexibleHeight;
         
-        [self.view insertSubview:_menuContainerView atIndex:2];
+        [self.view insertSubview:_rightContainerView atIndex:2];
     }
     
-    return _menuContainerView;
+    return _rightContainerView;
+}
+
+- (UIView *)leftContainerView {
+    if (!_leftContainerView) {
+		CGRect frame = self.view.bounds;
+		frame.size.width = frame.size.width - self.options.menuViewOverlapWidth;
+		frame.origin.x = [self menuMinOrigin:MVYSideMenuLeft];
+        _leftContainerView = [[UIView alloc] initWithFrame:frame];
+        _leftContainerView.backgroundColor = [UIColor clearColor];
+        _leftContainerView.autoresizingMask = UIViewAutoresizingFlexibleHeight;
+        
+        [self.view insertSubview:_leftContainerView atIndex:2];
+    }
+    
+    return _leftContainerView;
 }
 
 - (void)addGestures {
 	
     if (!_panGesture) {
-        _panGesture = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePanGesture:)];
-		[_panGesture setDelegate:self];
-        [self.view addGestureRecognizer:_panGesture];
+        // _panGesture = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePanGesture:)];
+		// [_panGesture setDelegate:self];
+        // [self.view addGestureRecognizer:_panGesture];
     }
 	
 	if (!_tapGesture) {
-        _tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleMenu)];
+        _tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(closeMenu)];
         [_tapGesture setDelegate:self];
 		[self.view addGestureRecognizer:_tapGesture];
     }
 }
 
+/*
 - (void)handlePanGesture:(UIPanGestureRecognizer *)panGesture {
 	
 	static CGRect menuFrameAtStartOfPan;
-	static CGPoint startPointOfPan;
-	static BOOL menuWasOpenAtStartOfPan;
-	static BOOL menuWasHiddenAtStartOfPan;
+	static BOOL isMenuAppearing;
 	
 	switch (panGesture.state) {
 		case UIGestureRecognizerStateBegan:
-			menuFrameAtStartOfPan = self.menuContainerView.frame;
-			startPointOfPan = [panGesture locationInView:self.view];
-			menuWasOpenAtStartOfPan = [self isMenuOpen];
-			menuWasHiddenAtStartOfPan = [self isMenuHidden];
-			[self.menuViewController beginAppearanceTransition:menuWasHiddenAtStartOfPan animated:YES];
-			[self addShadowToMenuView];
-			break;
+            if ([self isLeftMenuOpen]){
+                menuFrameAtStartOfPan = self.leftContainerView.frame;
+                isMenuAppearing = [self isLeftMenuHidden];
+                [self.leftViewController beginAppearanceTransition:isMenuAppearing animated:YES];
+                [self addShadowToMenuView:MVYSideMenuLeft];
+                break;
+            } else {
+                menuFrameAtStartOfPan = self.rightContainerView.frame;
+                isMenuAppearing = [self isRightMenuHidden];
+                [self.rightViewController beginAppearanceTransition:isMenuAppearing animated:YES];
+                [self addShadowToMenuView:MVYSideMenuRight];
+                break;
+
+            }
 			
 		case UIGestureRecognizerStateChanged:{
 			CGPoint translation = [panGesture translationInView:panGesture.view];
@@ -246,15 +296,15 @@ typedef struct {
 		}
 			
 		case UIGestureRecognizerStateEnded:{
-			[self.menuViewController beginAppearanceTransition:!menuWasHiddenAtStartOfPan animated:YES];
+			[self.menuViewController beginAppearanceTransition:!isMenuAppearing animated:YES];
 			
 			CGPoint velocity = [panGesture velocityInView:panGesture.view];
-			MVYSideMenuPanResultInfo panInfo = [self panResultInfoForVelocity:velocity];
+			MVYSideMenuPanResultInfo panInfo = [self panResultInfoForVelocity:velocity side:side];
 			
 			if (panInfo.menuAction == MVYSideMenuOpen) {
-				[self openMenuWithVelocity:panInfo.velocity];
+				[self openMenuWithVelocity:panInfo.velocity side:side];
 			} else {
-				[self closeMenuWithVelocity:panInfo.velocity];
+				[self closeMenuWithVelocity:panInfo.velocity side:side];
 			}
 			break;
 		}
@@ -264,12 +314,20 @@ typedef struct {
 	}
 }
 
-- (MVYSideMenuPanResultInfo)panResultInfoForVelocity:(CGPoint)velocity {
+- (MVYSideMenuPanResultInfo)panResultInfoForVelocity:(CGPoint)velocity side:(MVYSideMenuSide)side {
 	
 	static CGFloat thresholdVelocity = 450.0f;
-	CGFloat pointOfNoReturn = floorf([self menuMinOrigin] / 2.0f);
-	CGFloat menuOrigin = self.menuContainerView.frame.origin.x;
-	
+    CGFloat pointOfNoReturn;
+    CGFloat menuOrigin;
+    
+    if (side == MVYSideMenuLeft) {
+        pointOfNoReturn = floorf([self menuMinOrigin:side] / 2.0f);
+        menuOrigin = self.leftContainerView.frame.origin.x;
+    } else {
+        pointOfNoReturn = floorf((self.view.bounds.size.width + self.options.menuViewOverlapWidth) / 2.0f);
+        menuOrigin = self.rightContainerView.frame.origin.x;
+    }
+
 	MVYSideMenuPanResultInfo panInfo = {MVYSideMenuClose, NO, 0.0f};
 	
 	panInfo.menuAction = menuOrigin <= pointOfNoReturn ? MVYSideMenuClose : MVYSideMenuOpen;
@@ -284,85 +342,121 @@ typedef struct {
 	
 	return panInfo;
 }
+ */
 
-- (void)toggleMenu {
-	
-	[self isMenuOpen] ? [self closeMenu] : [self openMenu];
+- (BOOL)isLeftMenuOpen {
+	return self.leftContainerView.frame.origin.x == 0.0f;
 }
 
-- (BOOL)isMenuOpen {
-	return self.menuContainerView.frame.origin.x == 0.0f;
+- (BOOL)isRightMenuOpen {
+	return self.rightContainerView.frame.origin.x == self.options.menuViewOverlapWidth;
 }
 
-- (BOOL)isMenuHidden {
-	return self.menuContainerView.frame.origin.x <= [self menuMinOrigin];
+- (BOOL)isLeftMenuHidden {
+	return self.leftContainerView.frame.origin.x <= [self menuMinOrigin:MVYSideMenuLeft];
 }
 
-- (CGFloat)menuMinOrigin {
-	return -(self.view.bounds.size.width - self.options.menuViewOverlapWidth);
+- (BOOL)isRightMenuHidden {
+	return self.rightContainerView.frame.origin.x >= [self menuMaxOrigin:MVYSideMenuRight];
 }
 
-- (CGRect)applyTranslation:(CGPoint)translation toFrame:(CGRect)frame {
+- (CGFloat)menuMaxOrigin:(MVYSideMenuSide)side {
+    if (side == MVYSideMenuLeft){
+        return 0.0f;
+    } else {
+        return self.view.bounds.size.width;
+    }
+}
+
+- (CGFloat)menuMinOrigin:(MVYSideMenuSide)side {
+    if (side == MVYSideMenuLeft){
+        return -(self.view.bounds.size.width - self.options.menuViewOverlapWidth);
+    } else {
+        return self.options.menuViewOverlapWidth;
+    }
+}
+
+- (CGRect)applyTranslation:(CGPoint)translation toFrame:(CGRect)frame side:(MVYSideMenuSide)side {
 	
 	CGFloat newOrigin = frame.origin.x;
     newOrigin += translation.x;
 	
-    CGFloat minOrigin = [self menuMinOrigin];
-    CGFloat maxOrigin = 0.0f;
+    CGFloat minOrigin = [self menuMinOrigin:side];
+    CGFloat maxOrigin = [self menuMaxOrigin:side];
+
     CGRect newFrame = frame;
     
     if (newOrigin < minOrigin) {
-		newOrigin = minOrigin;
+        newOrigin = minOrigin;
     } else if (newOrigin > maxOrigin) {
-		newOrigin = maxOrigin;
+        newOrigin = maxOrigin;
     }
 	
     newFrame.origin.x = newOrigin;
     return newFrame;
 }
 
-- (CGFloat)getOpenedMenuRatio {
+- (CGFloat)getOpenedMenuRatio:(MVYSideMenuSide)side{
 	
 	CGFloat width = self.view.bounds.size.width - self.options.menuViewOverlapWidth;
-	CGFloat currentPosition = self.menuContainerView.frame.origin.x - [self menuMinOrigin];
+	CGFloat currentPosition;
+    if(side == MVYSideMenuLeft){
+        currentPosition = self.leftContainerView.frame.origin.x - [self menuMinOrigin:side];
+    } else {
+        currentPosition = [self menuMaxOrigin:side] - self.rightContainerView.frame.origin.x;
+    }
 	return currentPosition / width;
 }
 
-- (void)applyOpacity {
+- (void)applyOpacity:(MVYSideMenuSide)side {
 	
-	CGFloat openedMenuRatio = [self getOpenedMenuRatio];
+	CGFloat openedMenuRatio = [self getOpenedMenuRatio:side];
 	CGFloat opacity = self.options.contentViewOpacity * openedMenuRatio;
 	self.opacityView.layer.opacity = opacity;
 }
 
-- (void)applyContentViewScale {
+- (void)applyContentViewScale:(MVYSideMenuSide)side {
 
-	CGFloat openedMenuRatio = [self getOpenedMenuRatio];	
+	CGFloat openedMenuRatio = [self getOpenedMenuRatio:side];
 	CGFloat scale = 1.0 - ((1.0 - self.options.contentViewScale) * openedMenuRatio);
 	
 	[self.contentContainerView setTransform:CGAffineTransformMakeScale(scale, scale)];
 }
 
-- (void)openMenuWithVelocity:(CGFloat)velocity {
+- (void)openMenuWithVelocity:(CGFloat)velocity side:(MVYSideMenuSide)side {
 	
-	CGFloat menuXOrigin = self.menuContainerView.frame.origin.x;
-	CGFloat finalXOrigin = 0.0f;
+    CGFloat startXOrigin;
+    CGFloat finalXOrigin;
+    CGRect frame;
 	
-	CGRect frame = self.menuContainerView.frame;
+    if(side == MVYSideMenuLeft){
+        startXOrigin = self.leftContainerView.frame.origin.x;
+        finalXOrigin = [self menuMaxOrigin:MVYSideMenuLeft];
+        frame = self.leftContainerView.frame;
+    } else {
+        startXOrigin = self.rightContainerView.frame.origin.x;
+        finalXOrigin = [self menuMinOrigin:MVYSideMenuRight];
+        frame = self.rightContainerView.frame;
+    }
+    
 	frame.origin.x = finalXOrigin;
 	
 	NSTimeInterval duration;
 	if (velocity == 0.0f) {
         duration = self.options.animationDuration;        
 	} else {
-		duration = fabs(menuXOrigin - finalXOrigin) / velocity;
+		duration = fabs(startXOrigin - finalXOrigin) / velocity;
 		duration = fmax(0.1, fmin(1.0f, duration));
 	}
 	
-	[self addShadowToMenuView];
+	[self addShadowToMenuView:side];
 	
 	[UIView animateWithDuration:duration delay:0.0f options:UIViewAnimationOptionCurveEaseInOut animations:^{
-		self.menuContainerView.frame = frame;
+        if(side == MVYSideMenuLeft){
+            self.leftContainerView.frame = frame;
+        } else {
+            self.rightContainerView.frame = frame;
+        }
 		self.opacityView.layer.opacity = self.options.contentViewOpacity;
 		[self.contentContainerView setTransform:CGAffineTransformMakeScale(self.options.contentViewScale, self.options.contentViewScale)];
 	} completion:^(BOOL finished) {
@@ -370,12 +464,22 @@ typedef struct {
 	}];
 }
 
-- (void)closeMenuWithVelocity:(CGFloat)velocity {
+- (void)closeMenuWithVelocity:(CGFloat)velocity side:(MVYSideMenuSide)side {
 	
-	CGFloat menuXOrigin = self.menuContainerView.frame.origin.x;
-	CGFloat finalXOrigin = [self menuMinOrigin];
+	CGFloat menuXOrigin;
+	CGFloat finalXOrigin;
+    CGRect frame;
+    
+    if(side == MVYSideMenuLeft) {
+        menuXOrigin = self.leftContainerView.frame.origin.x;
+        finalXOrigin = [self menuMinOrigin:side];
+        frame = self.leftContainerView.frame;
+    } else {
+        menuXOrigin = self.rightContainerView.frame.origin.x;
+        finalXOrigin = [self menuMaxOrigin:side];
+        frame = self.rightContainerView.frame;
+    }
 	
-	CGRect frame = self.menuContainerView.frame;
 	frame.origin.x = finalXOrigin;
 	
 	NSTimeInterval duration;
@@ -387,18 +491,22 @@ typedef struct {
 	}
 	
 	[UIView animateWithDuration:duration delay:0.0f options:UIViewAnimationOptionCurveEaseInOut animations:^{
-		self.menuContainerView.frame = frame;
+        if(side == MVYSideMenuLeft){
+            self.leftContainerView.frame = frame;
+        } else {
+            self.rightContainerView.frame = frame;
+        }
 		self.opacityView.layer.opacity = 0.0f;
 		[self.contentContainerView setTransform:CGAffineTransformMakeScale(1.0, 1.0)];
 	} completion:^(BOOL finished) {
-		[self removeMenuShadow];
+		[self removeMenuShadow:side];
 		[self enableContentInteraction];
 	}];
 }
 
 - (BOOL)slideMenuForGestureRecognizer:(UIGestureRecognizer *)gesture withTouchPoint:(CGPoint)point {
 	
-	BOOL slide = [self isMenuOpen];
+	BOOL slide = [self isLeftMenuOpen] || [self isRightMenuOpen];
 	
 	slide |= self.options.panFromBezel && [self isPointContainedWithinBezelRect:point];
 	
@@ -427,23 +535,41 @@ typedef struct {
     return CGRectContainsPoint(leftBezelRect, point);
 }
 
-- (BOOL)isPointContainedWithinMenuRect:(CGPoint)point {
-	return CGRectContainsPoint(self.menuContainerView.frame, point);
+- (BOOL)isPointContainedWithinMenuRect:(CGPoint)point side:(MVYSideMenuSide)side {
+    if(side == MVYSideMenuLeft){
+        return CGRectContainsPoint(self.leftContainerView.frame, point);
+        
+    } else {
+        return CGRectContainsPoint(self.rightContainerView.frame, point);
+    }
 }
 
-- (void)addShadowToMenuView {
+- (void)addShadowToMenuView:(MVYSideMenuSide)side {
 	
-	self.menuContainerView.layer.masksToBounds = NO;
-	self.menuContainerView.layer.shadowOffset = self.options.shadowOffset;
-	self.menuContainerView.layer.shadowOpacity = self.options.shadowOpacity;
-    self.menuContainerView.layer.shadowRadius = self.options.shadowRadius;
-	self.menuContainerView.layer.shadowPath = [[UIBezierPath
-                                                 bezierPathWithRect:self.menuContainerView.bounds] CGPath];
+    if (side == MVYSideMenuLeft) {
+        self.leftContainerView.layer.masksToBounds = NO;
+        self.leftContainerView.layer.shadowOffset = self.options.shadowOffset;
+        self.leftContainerView.layer.shadowOpacity = self.options.shadowOpacity;
+        self.leftContainerView.layer.shadowRadius = self.options.shadowRadius;
+        self.leftContainerView.layer.shadowPath = [[UIBezierPath
+                                                    bezierPathWithRect:self.leftContainerView.bounds] CGPath];
+    } else {
+        self.rightContainerView.layer.masksToBounds = NO;
+        self.rightContainerView.layer.shadowOffset = self.options.shadowOffset;
+        self.rightContainerView.layer.shadowOpacity = self.options.shadowOpacity;
+        self.rightContainerView.layer.shadowRadius = self.options.shadowRadius;
+        self.rightContainerView.layer.shadowPath = [[UIBezierPath
+                                                    bezierPathWithRect:self.rightContainerView.bounds] CGPath];
+    }
 }
 
-- (void)removeMenuShadow {
+- (void)removeMenuShadow:(MVYSideMenuSide)side {
 	
-	self.menuContainerView.layer.masksToBounds = YES;
+    if(side == MVYSideMenuLeft){
+        self.leftContainerView.layer.masksToBounds = YES;
+    } else {
+        self.rightContainerView.layer.masksToBounds = YES;
+    }
 	self.contentContainerView.layer.opacity = 1.0;
 }
 
@@ -472,7 +598,7 @@ typedef struct {
 	if (gestureRecognizer == _panGesture) {
 		return [self slideMenuForGestureRecognizer:gestureRecognizer withTouchPoint:point];
 	} else if (gestureRecognizer == _tapGesture){
-		return [self isMenuOpen] && ![self isPointContainedWithinMenuRect:point];
+		return ([self isLeftMenuOpen] && ![self isPointContainedWithinMenuRect:point side:MVYSideMenuLeft]) || ([self isRightMenuOpen] && ![self isPointContainedWithinMenuRect:point side:MVYSideMenuRight]);
 	}
 	
 	return YES;
